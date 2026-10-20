@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="referrer" content="no-referrer">
+<title>NontonKu</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0e1726;--sf:#172338;--tx:#e8edf5;--mu:#8b9ab3;--ac:#f5b942}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.5 "Bricolage Grotesque",system-ui,sans-serif;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+.wrap{max-width:1100px;margin:0 auto;padding:20px 16px}
+h1{font-size:2rem;margin:0 0 4px;letter-spacing:-.02em}
+.sub{color:var(--mu);margin:0 0 20px}
+.paste{display:flex;gap:8px;margin-bottom:28px}
+.paste input{flex:1;min-width:0;padding:12px 14px;border-radius:8px;border:1px solid #2b3b57;background:var(--sf);color:var(--tx);font:inherit}
+.paste button{padding:0 18px;border-radius:8px;background:var(--ac);color:#1a1200;font-weight:700}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px}
+.card{aspect-ratio:2/3;border-radius:10px;padding:12px;display:flex;flex-direction:column;justify-content:flex-end;text-align:left;background:linear-gradient(160deg,hsl(var(--h) 45% 32%),hsl(var(--h) 50% 14%));background-size:cover;background-position:center;box-shadow:inset 0 -100px 60px -30px rgba(0,0,0,.8)}
+.card strong{font-size:1rem;line-height:1.2}
+.card span{font-size:.8rem;color:#c9d3e3}
+.card:focus-visible,button:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+/* player */
+.box{position:relative;width:100%;aspect-ratio:16/9;background:#000;overflow:hidden;user-select:none;-webkit-user-select:none;border-radius:10px}
+.box:fullscreen{aspect-ratio:auto;height:100%;border-radius:0}
+.box:-webkit-full-screen{aspect-ratio:auto;height:100%;border-radius:0}
+.box.pfs{position:fixed;inset:0;z-index:99;aspect-ratio:auto;border-radius:0}
+video,canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.sim video{opacity:0}
+#gest{position:absolute;inset:0;z-index:1;touch-action:none;-webkit-touch-callout:none}
+.box:not(.ui){cursor:none}
+.top,.bar{position:absolute;left:0;right:0;z-index:2;padding:10px 14px;transition:opacity .2s}
+.top{top:0;display:flex;gap:12px;align-items:center;background:linear-gradient(rgba(0,0,0,.7),transparent)}
+.bar{bottom:0;padding-top:30px;background:linear-gradient(transparent,rgba(0,0,0,.8))}
+.box:not(.ui) .top,.box:not(.ui) .bar{opacity:0;pointer-events:none}
+.row{display:flex;align-items:center;gap:14px;margin-top:4px}
+.row button{padding:6px 4px;min-width:34px}
+.sp{flex:1}
+#tm{font-size:.85rem;font-variant-numeric:tabular-nums;color:#ddd}
+#seek{width:100%;accent-color:var(--ac);margin:0;height:18px}
+.qw{position:relative}
+#qb{border:1px solid #fff5;border-radius:6px;padding:3px 10px;font-size:.85rem}
+#qm{position:absolute;bottom:130%;right:0;background:#111c2e;border:1px solid #2b3b57;border-radius:8px;padding:4px;display:flex;flex-direction:column;min-width:90px}
+#qm button{padding:8px 12px;text-align:left;border-radius:6px}
+#qm button.on{color:var(--ac);font-weight:700}
+#ind{position:absolute;z-index:3;top:50%;transform:translateY(-50%);padding:10px 16px;border-radius:99px;background:rgba(0,0,0,.65);opacity:0;pointer-events:none;transition:opacity .15s;text-align:center;max-width:80%}
+#ind.on{opacity:1}
+#ind.L{left:10%}#ind.R{right:10%}
+#ind.T{top:14%;left:50%;transform:translate(-50%,0)}
+#spin{position:absolute;z-index:3;top:50%;left:50%;width:44px;height:44px;margin:-22px;border:4px solid #fff4;border-top-color:var(--ac);border-radius:50%;animation:r .8s linear infinite;pointer-events:none}
+@keyframes r{to{transform:rotate(360deg)}}
+#ttl{font-weight:700}
+.note{color:var(--mu);font-size:.85rem;margin-top:12px}
+</style>
+</head>
+<body>
+<main class="wrap" id="home">
+  <h1>NontonKu</h1>
+  <p class="sub">Pilih tontonan, atau tempel link video langsung.</p>
+  <div class="paste">
+    <input id="url" type="url" placeholder="https://.../video.mp4" aria-label="Link video langsung">
+    <button id="go">Putar</button>
+  </div>
+  <div class="grid" id="grid"></div>
+</main>
+
+<main class="wrap" id="player" hidden>
+  <div class="box ui" id="box">
+    <video id="v" playsinline preload="metadata"></video>
+    <canvas id="c" hidden></canvas>
+    <div id="gest"></div>
+    <div id="ind"></div>
+    <div id="spin" hidden></div>
+    <div class="top"><button id="back">‹ Kembali</button><span id="ttl"></span></div>
+    <div class="bar" id="bar">
+      <input id="seek" type="range" min="0" max="1000" value="0" aria-label="Posisi video">
+      <div class="row">
+        <button id="pp" aria-label="Putar atau jeda">▶</button>
+        <span id="tm">0:00 / 0:00</span><span class="sp"></span>
+        <button id="mute">Suara</button>
+        <div class="qw"><button id="qb">720p</button><div id="qm" hidden></div></div>
+        <button id="fs" aria-label="Layar penuh">⛶</button>
+      </div>
+    </div>
+  </div>
+  <p class="note">Ketuk dua kali di kiri/kanan: mundur/maju 10 detik. Tahan tepi layar: kecepatan 2×. Ketuk dua kali di tengah: layar penuh.</p>
+</main>
+
+<script>
+/* ========= DAFTAR VIDEO (edit bagian ini) =========
+   A) Satu link saja  -> { title, info, src, maxQuality }
+      Pilihan 360p-720p berupa simulasi di browser (tampilan diturunkan,
+      kuota tidak berkurang). maxQuality = resolusi asli videomu (default 720).
+   B) Resolusi asli    -> { title, info, sources:{ "720p":"link", "480p":"link", "360p":"link" } }
+      Buat file 480p/360p dengan FFmpeg (lihat README), kuota benar-benar hemat.
+   poster (opsional): link gambar sampul. */
+const LIBRARY=[
+ {title:"Dragon Ball Super: Beerus 1",info:"Episode 1",maxQuality:1080,
+  src:"https://cdn-stable.nanimeid.xyz/file/NanimeID-V2/Denz/anime%20ongoing%202/Dragon%20Ball%20Super%20Beerus/01/Beerus%201%20FullHD-WINBU.ORG.mp4"}
+];
+/* ================================================= */
+
+const $=id=>document.getElementById(id);
+const v=$('v'),c=$('c'),ctx=c.getContext('2d'),box=$('box'),gest=$('gest'),ind=$('ind'),
+ seek=$('seek'),pp=$('pp'),tm=$('tm'),qb=$('qb'),qm=$('qm'),spin=$('spin');
+let item,real,levels=[],cur,uiT,ft,hold,downX=0,speeding=false,lastTap=0,lastSide='',tapT,dragging=false;
+
+const fmt=s=>{s=Math.floor(s||0);const h=Math.floor(s/3600),m=Math.floor(s%3600/60),r=s%60;
+ return (h?h+':'+String(m).padStart(2,'0'):m)+':'+String(r).padStart(2,'0')};
+
+/* --- daftar --- */
+function render(){
+ const g=$('grid');g.innerHTML='';
+ LIBRARY.forEach(it=>{
+  const b=document.createElement('button');b.className='card';
+  b.style.setProperty('--h',(it.title.length*47)%360);
+  if(it.poster)b.style.backgroundImage=`url("${it.poster}")`;
+  const t=document.createElement('strong');t.textContent=it.title;
+  const s=document.createElement('span');s.textContent=it.info||'';
+  b.append(t,s);b.onclick=()=>openItem(it);g.append(b);
+ });
+}
+$('go').onclick=()=>{const u=$('url').value.trim();if(u)openItem({title:'Link langsung',src:u})};
+
+/* --- buka & tutup player --- */
+function openItem(it){
+ item=it;real=!!it.sources;
+ levels=real?Object.keys(it.sources).sort((a,b)=>parseInt(b)-parseInt(a))
+  :[1080,720,480,360].filter(x=>x<=(it.maxQuality||720)).map(x=>x+'p');
+ cur=levels[0];qb.textContent=cur;buildMenu();
+ $('ttl').textContent=it.title;
+ $('home').hidden=true;$('player').hidden=false;
+ box.classList.remove('sim');c.hidden=true;
+ v.src=real?it.sources[cur]:it.src;
+ v.play().catch(()=>{});
+ showUI();flash('Ketuk 2× kiri/kanan: ±10 detik · Tahan tepi: 2×','T',4500);
+}
+$('back').onclick=()=>{
+ if(document.fullscreenElement)document.exitFullscreen();
+ box.classList.remove('pfs','sim');
+ v.pause();v.removeAttribute('src');v.load();
+ $('player').hidden=true;$('home').hidden=false;
+};
+
+/* --- resolusi --- */
+function buildMenu(){
+ qm.innerHTML='';
+ levels.forEach(l=>{const b=document.createElement('button');b.textContent=l;
+  b.className=l===cur?'on':'';b.onclick=()=>{setQ(l);qm.hidden=true};qm.append(b)});
+}
+function setQ(l){
+ const t=v.currentTime,play=!v.paused;cur=l;qb.textContent=l;buildMenu();
+ if(real){
+  v.src=item.sources[l];
+  v.addEventListener('loadedmetadata',()=>{v.currentTime=t;if(play)v.play().catch(()=>{})},{once:true});
+ }else applySim();
+ flash('Resolusi '+l,'T',1200);
+}
+function applySim(){
+ const h=parseInt(cur),vh=v.videoHeight;
+ const on=!real&&vh&&h<vh;
+ box.classList.toggle('sim',!!on);c.hidden=!on;
+ if(on){c.height=h;c.width=Math.round(h*v.videoWidth/vh)}
+}
+(function loop(){
+ if(box.classList.contains('sim'))ctx.drawImage(v,0,0,c.width,c.height);
+ requestAnimationFrame(loop);
+})();
+
+/* --- kontrol --- */
+function toggle(){v.paused?v.play():v.pause()}
+function skip(n){
+ v.currentTime=Math.max(0,Math.min(v.duration||1e9,v.currentTime+n));
+ flash((n>0?'+':'−')+'10 detik',n>0?'R':'L',600);
+}
+function flash(t,s,ms){
+ ind.textContent=t;ind.className='on '+s;clearTimeout(ft);
+ if(ms)ft=setTimeout(()=>ind.className='',ms);
+}
+function showUI(){
+ box.classList.add('ui');clearTimeout(uiT);
+ if(!v.paused&&qm.hidden)uiT=setTimeout(()=>box.classList.remove('ui'),3000);
+}
+function toggleUI(){
+ if(box.classList.contains('ui')){clearTimeout(uiT);box.classList.remove('ui')}else showUI();
+}
+function toggleFs(){
+ const cf=document.fullscreenElement||document.webkitFullscreenElement;
+ if(cf||box.classList.contains('pfs')){
+  if(cf)(document.exitFullscreen||document.webkitExitFullscreen).call(document);
+  box.classList.remove('pfs');
+  try{screen.orientation.unlock()}catch(e){}
+ }else{
+  const rq=box.requestFullscreen||box.webkitRequestFullscreen;
+  if(!rq)return box.classList.add('pfs');
+  Promise.resolve(rq.call(box))
+   .then(()=>{try{screen.orientation.lock('landscape').catch(()=>{})}catch(e){}})
+   .catch(()=>box.classList.add('pfs'));
+ }
+}
+pp.onclick=toggle;$('fs').onclick=toggleFs;
+$('mute').onclick=e=>{v.muted=!v.muted;e.target.textContent=v.muted?'Bisu':'Suara'};
+qb.onclick=()=>{qm.hidden=!qm.hidden;showUI()};
+$('bar').addEventListener('click',showUI);
+box.onmousemove=showUI;
+seek.oninput=()=>{dragging=true;v.currentTime=seek.value/1000*(v.duration||0)};
+seek.onchange=()=>dragging=false;
+
+v.onplay=v.onpause=()=>{pp.textContent=v.paused?'▶':'❚❚';showUI()};
+v.ontimeupdate=()=>{
+ if(!dragging&&v.duration)seek.value=v.currentTime/v.duration*1000;
+ tm.textContent=fmt(v.currentTime)+' / '+fmt(v.duration);
+};
+v.onwaiting=()=>spin.hidden=false;
+v.onplaying=v.oncanplay=()=>spin.hidden=true;
+v.onloadedmetadata=applySim;
+v.onerror=()=>{spin.hidden=true;flash('Video gagal dimuat. Cek link-nya.','T',4000)};
+
+/* --- gestur: dobel ketuk & tahan tepi --- */
+const zone=x=>{const r=gest.getBoundingClientRect();return (x-r.left)/r.width};
+function endSpeed(){if(speeding){speeding=false;v.playbackRate=1;ind.className=''}}
+gest.oncontextmenu=e=>e.preventDefault();
+gest.onpointerdown=e=>{
+ try{gest.setPointerCapture(e.pointerId)}catch(_){}
+ downX=e.clientX;clearTimeout(hold);
+ hold=setTimeout(()=>{
+  const p=zone(downX);
+  if(p<.2||p>.8){speeding=true;v.playbackRate=2;flash('2× ▶▶','T',0)}
+ },350);
+};
+gest.onpointerup=e=>{
+ clearTimeout(hold);
+ if(speeding)return endSpeed();
+ const now=Date.now(),p=zone(e.clientX),s=p<.3?'L':p>.7?'R':'C',pt=e.pointerType;
+ if(now-lastTap<300&&s===lastSide){
+  clearTimeout(tapT);lastTap=0;
+  if(s==='L')skip(-10);else if(s==='R')skip(10);else toggleFs();
+  return;
+ }
+ lastTap=now;lastSide=s;
+ tapT=setTimeout(()=>{pt==='mouse'?toggle():toggleUI()},300);
+};
+gest.onpointercancel=()=>{clearTimeout(hold);endSpeed()};
+
+/* --- keyboard --- */
+addEventListener('keydown',e=>{
+ if($('player').hidden||e.target.type==='url')return;
+ const k=e.key;
+ if(k===' '&&e.target.tagName==='BUTTON')return;
+ if(k===' '||k==='k'){e.preventDefault();toggle()}
+ else if(k==='ArrowRight')skip(10);
+ else if(k==='ArrowLeft')skip(-10);
+ else if(k==='f')toggleFs();
+ else if(k==='m')$('mute').click();
+});
+
+render();
+</script>
+</body>
+</html>
